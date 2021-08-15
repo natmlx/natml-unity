@@ -1,0 +1,6 @@
+framework module NatML {
+  umbrella header "NatML.h"
+
+  export *
+  module * { export * }
+}
