@@ -1,0 +1,190 @@
+/* 
+*   NatML
+*   Copyright (c) 2021 Yusuf Olokoba.
+*/
+
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo(@"NatSuite.ML.Internal")]
+namespace NatSuite.ML {
+
+    using System;
+    using System.IO;
+    using System.Net;
+    using System.Threading.Tasks;
+    using UnityEngine;
+    using Features;
+    using Hub;
+    using Hub.Requests;
+    using Internal;
+
+    /// <summary>
+    /// Self-contained archive with ML model and supplemental data needed to make predictions.
+    /// </summary>
+    public sealed partial class MLModelData {
+
+        #region --Client API--
+        /// <summary>
+        /// NatML Hub predictor tag.
+        /// </summary>
+        public string tag => session.predictor.tag;
+
+        /// <summary>
+        /// Predictor classification labels.
+        /// This is `null` if the predictor does not have use classification labels.
+        /// </summary>
+        public string[] labels => session.predictor.labels;
+
+        /// <summary>
+        /// Expected feature normalization for predictions with this model.
+        /// </summary>
+        public Normalization normalization => session.predictor.normalization;
+
+        /// <summary>
+        /// Expected image aspect mode for predictions with this model.
+        /// </summary>
+        public MLImageFeature.AspectMode aspectMode {
+            get {
+                switch (session.predictor.aspectMode) {
+                    case "SCALE_TO_FIT":
+                    case "ScaleToFit":      return MLImageFeature.AspectMode.ScaleToFit;
+                    case "ASPECT_FILL":
+                    case "AspectFill":      return MLImageFeature.AspectMode.AspectFill;
+                    case "ASPECT_FIT":
+                    case "AspectFit":       return MLImageFeature.AspectMode.AspectFit;
+                    default:                return 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Expected audio format for predictions with this model.
+        /// </summary>
+        public AudioFormat audioFormat => session.predictor.audioFormat;
+
+        /// <summary>
+        /// Deserialize the model data to create an ML model that can be used for prediction.
+        /// You MUST dispose the model once you are done with it.
+        /// </summary>
+        /// <returns>ML model.</returns>
+        public unsafe MLModel Deserialize () {
+            var flags = session.flags;
+            switch (session.predictor.type) {
+                case PredictorType.Edge:    return new MLEdgeModel(session.id, graph, &flags);
+                case PredictorType.Hub:     return new MLHubModel(session.id);
+                default:                    throw new InvalidOperationException(@"Invalid predictor type");
+            }
+        }
+
+        /// <summary>
+        /// Fetch ML model data from NatML Hub.
+        /// </summary>
+        /// <param name="tag">Predictor tag.</param>
+        /// <param name="accessKey">Hub access key.</param>
+        /// <param name="analytics">Enable performance analytics reporting.</param>
+        /// <param name="cache">Cache model data on the device.</param>
+        /// <returns>ML model data.</returns>
+        public static async Task<MLModelData> FromHub (
+            string tag,
+            string accessKey = null,
+            bool analytics = true,
+            bool cache = true
+        ) {
+            // Check cache
+            var modelData = cache ? await FromCache(tag) : null;
+            // Load from Hub
+            if (modelData == null) {
+                modelData = await FromHub(tag, accessKey);
+                #pragma warning disable 4014
+                if (cache)
+                    SaveToCache(modelData);
+                #pragma warning restore 4014
+            }
+            if (modelData.session.predictor.type == PredictorType.Edge && !analytics)
+                modelData.session.id = null;
+            // Return
+            return modelData;
+        }
+        #endregion
+
+
+        #region --Operations--
+        private readonly Session session;
+        private readonly byte[] graph;
+
+        private MLModelData (Session session, byte[] graph) {
+            this.session = session;
+            this.graph = graph;
+        }
+
+        private static async Task<MLModelData> FromHub (string tag, string accessKey) {
+            // Create session
+            var input = new CreateSessionRequest.Input {
+                tag = tag,
+                device = new CreateSessionRequest.Device {
+                    os = Application.platform.ToString(),
+                    model = SystemInfo.deviceModel,
+                    gfx = SystemInfo.graphicsDeviceType.ToString(),
+                    framework = Framework.Unity
+                }
+            };
+            var session = await NatMLHub.CreateSession(input, accessKey);
+            // Download graph
+            byte[] graph = null;
+            if (session.predictor.type == PredictorType.Edge)
+                using (var client = new WebClient())
+                    graph = await client.DownloadDataTaskAsync(session.graph);
+            // Create model data
+            var modelData = new MLModelData(session, graph);
+            return modelData;
+        }
+
+        private static async Task<MLModelData> FromCache (string tag) {
+            // Check
+            var cacheName = tag.Replace('/', '_');
+            var basePath = Path.Combine(Application.persistentDataPath, "ML");
+            var cachePath = Path.Combine(basePath, $"{cacheName}.nml");
+            if (!File.Exists(cachePath))
+                return null;
+            // Load session
+            var session = JsonUtility.FromJson<Session>(File.ReadAllText(cachePath));
+            // Check if created with older version
+            if (string.IsNullOrEmpty(session.predictor.type) || string.IsNullOrEmpty(session.graph)) {
+                File.Delete(cachePath);
+                return null;
+            }
+            // Load graph
+            var graphPath = Path.Combine(basePath, session.graph);
+            byte[] graph = null;
+            using (var stream = new FileStream(graphPath, FileMode.Open, FileAccess.Read)) {
+                graph = new byte[stream.Length];
+                await stream.ReadAsync(graph, 0, graph.Length);
+            }
+            // Create model data
+            var modelData = new MLModelData(session, graph);          
+            return modelData;
+        }
+
+        private static async Task SaveToCache (MLModelData modelData) {
+            // Check
+            if (modelData == null)
+                return;
+            if (modelData.session.predictor.type != PredictorType.Edge)
+                return;
+            // Create cache dir
+            var cacheName = modelData.tag.Replace('/', '_');
+            var basePath = Path.Combine(Application.persistentDataPath, "ML");
+            Directory.CreateDirectory(basePath);
+            // Write graph
+            var graphName = Guid.NewGuid().ToString();
+            var graphPath = Path.Combine(basePath, graphName);
+            using (var stream = new FileStream(graphPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await stream.WriteAsync(modelData.graph, 0, modelData.graph.Length);
+            // Write session
+            var cachePath = Path.Combine(basePath, $"{cacheName}.nml");
+            var session = modelData.session;
+            session.graph = graphPath;
+            using (var stream = new StreamWriter(cachePath))
+                await stream.WriteAsync(JsonUtility.ToJson(session));            
+        }
+        #endregion
+    }
+}

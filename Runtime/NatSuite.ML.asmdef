@@ -1,0 +1,19 @@
+{
+    "name": "NatSuite.ML",
+    "references": [],
+    "includePlatforms": [
+        "Android",
+        "Editor",
+        "iOS",
+        "macOSStandalone",
+        "WindowsStandalone64"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
