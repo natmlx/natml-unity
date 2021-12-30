@@ -1,0 +1,35 @@
+{
+    "name": "api.natsuite.natml",
+    "version": "1.0.7",
+    "displayName": "NatML",
+    "description": "High performance, cross platform machine learning runtime for Unity Engine.",
+    "unity": "2019.3",
+    "keywords": [
+        "natml",
+        "machine learning",
+        "ml",
+        "aritificial intelligence",
+        "ai",
+        "computer vision",
+        "opencv",
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "coreml",
+        "nnapi",
+        "directml",
+        "tensorflow",
+        "pytorch",
+        "torch",
+        "natdevice",
+        "natcorder"
+    ],
+    "author": {
+        "name": "NatSuite Framework",
+        "email": "hi@natsuite.io",
+        "url": "https://github.com/natsuite"
+    },
+    "license": "Apache-2.0",
+    "repository": "github:natsuite/NatML"
+}
