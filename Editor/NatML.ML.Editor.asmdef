@@ -1,0 +1,18 @@
+﻿{
+    "name": "NatML.ML.Editor",
+    "references": [
+        "NatML.Hub",
+        "NatML.ML"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
