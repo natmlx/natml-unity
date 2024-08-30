@@ -1,9 +1,9 @@
 # NatML
 
-> [!IMPORTANT]
-> NatML has officially been deprecated. We have created a new platform for running AI models on-device called [Function](https://github.com/fxnai/fxn3d).
-
 ![NatML](.media/wall.png)
+
+> [!CAUTION]
+> NatML has officially been deprecated. We have created a new platform for running AI models on-device called [Function](https://github.com/fxnai/fxn3d).
 
 NatML allows developers to integrate machine learning into their Unity applications in under five lines of code with zero infrastructure. NatML completely removes the need to have any experience with machine learning in order to take advantage of the features it can provide. Features include:
 
